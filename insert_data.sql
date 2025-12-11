@@ -985,5 +985,63 @@ INSERT INTO order_item (order_id, product_id, quantity, price) VALUES (99, 50, 3
 INSERT INTO order_item (order_id, product_id, quantity, price) VALUES (100, 50, 2, 59.99);
 INSERT INTO order_item (order_id, product_id, quantity, price) VALUES (100, 1, 1, 79.99);
 
+-- Stored Procedures Section
+
+DELIMITER //
+CREATE PROCEDURE GetTopSellingProductsByCategory(IN target_month INT, IN target_year INT)
+BEGIN
+  SELECT p.category, p.name,
+         SUM(oi.quantity) AS total_quantity_sold,
+         SUM(oi.quantity * p.price) AS total_sales
+  FROM OrderItem oi
+  JOIN Product p ON oi.product_id = p.id
+  JOIN OrderDetails od ON oi.order_id = od.id
+  WHERE MONTH(od.order_date) = target_month
+    AND YEAR(od.order_date) = target_year
+  GROUP BY p.category, p.name
+  HAVING SUM(oi.quantity) = (
+    SELECT MAX(total_quantity)
+    FROM (
+      SELECT SUM(oi2.quantity) AS total_quantity
+      FROM OrderItem oi2
+      JOIN Product p2 ON oi2.product_id = p2.id
+      JOIN OrderDetails od2 ON oi2.order_id = od2.id
+      WHERE MONTH(od2.order_date) = target_month
+        AND YEAR(od2.order_date) = target_year
+        AND p2.category = p.category
+      GROUP BY p2.name
+    ) AS sub
+  );
+END //
+DELIMITER ;
+
+DELIMITER //
+CREATE PROCEDURE GetTopSellingProductByStore(IN target_month INT, IN target_year INT)
+BEGIN
+  SELECT p.name AS product_name, s.store_id,
+         SUM(oi.quantity) AS total_quantity_sold,
+         SUM(oi.quantity * p.price) AS total_sales
+  FROM OrderItem oi
+  JOIN Product p ON oi.product_id = p.id
+  JOIN OrderDetails od ON oi.order_id = od.id
+  JOIN Store s ON od.store_id = s.store_id
+  WHERE MONTH(od.order_date) = target_month
+    AND YEAR(od.order_date) = target_year
+  GROUP BY s.store_id, p.name
+  HAVING SUM(oi.quantity) = (
+    SELECT MAX(total_quantity)
+    FROM (
+      SELECT SUM(oi2.quantity) AS total_quantity
+      FROM OrderItem oi2
+      JOIN Product p2 ON oi2.product_id = p2.id
+      JOIN OrderDetails od2 ON oi2.order_id = od2.id
+      WHERE MONTH(od2.order_date) = target_month
+        AND YEAR(od2.order_date) = target_year
+        AND od2.store_id = s.store_id
+      GROUP BY p2.name
+    ) AS sub
+  );
+END //
+DELIMITER ;
 
 
